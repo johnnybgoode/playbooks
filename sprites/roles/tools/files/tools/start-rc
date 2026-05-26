@@ -1,0 +1,13 @@
+#!/bin/bash
+# Start Claude Code in remote-control mode inside tmux.
+REPO_DIR="$HOME/project"
+TMUX_ARGS=(-d -s claude)
+
+# Only set the working directory if the project repo exists; tmux refuses to
+# create a session when -c points at a missing directory.
+if [ -d "$REPO_DIR" ]; then
+  TMUX_ARGS+=(-c "$REPO_DIR")
+fi
+
+tmux new-session "${TMUX_ARGS[@]}" \
+  'claude --dangerously-skip-permissions --remote-control'
