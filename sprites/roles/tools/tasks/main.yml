@@ -17,7 +17,7 @@
 - name: Symlink tools
   ansible.builtin.file:
     src: "/home/{{ ansible_user }}/.local/share/tools/{{ item }}"
-    dest: "~/.local/bin/{{ item }}"
+    dest: "/home/{{ ansible_user }}/.local/bin/{{ item }}"
     state: link
   loop:
     - sprite-task

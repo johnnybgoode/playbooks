@@ -73,8 +73,6 @@ async function main(): Promise<void> {
         expire: expire !== undefined ? parseExpire(expire) : "1h",
       });
       await emit(res);
-      // PUT may return 200 with no body; make success visible regardless.
-      if (res.ok) console.error(`ok: task '${name}' set`);
       break;
     }
 
@@ -95,7 +93,7 @@ async function main(): Promise<void> {
       if (!name) die(`error: 'delete' requires a task name\n\n${USAGE}`);
       const res = await api("DELETE", `/v1/tasks/${encodeURIComponent(name)}`);
       await emit(res); // 204 -> no body; emit() stays quiet but enforces 2xx
-      if (res.ok) console.error(`ok: task '${name}' deleted`);
+      if (res.ok) console.log(`ok: task '${name}' deleted`);
       break;
     }
 

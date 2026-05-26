@@ -1,4 +1,0 @@
-#!/bin/bash
-
-tmux new-session -d -s claude -c "$HOME/engram" \
-  'claude --dangerously-skip-permissions --remote-control'
