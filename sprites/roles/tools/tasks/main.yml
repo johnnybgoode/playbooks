@@ -1,23 +1,21 @@
 ---
-- name: Ensure ~/.local dirs
+- name: Ensure tools staging dir
   ansible.builtin.file:
-    path: "/home/{{ ansible_user }}/{{ item }}"
+    path: "/home/{{ ansible_user }}/.local/share/tools"
     state: directory
     mode: "0755"
-  loop:
-    - .local
-    - .local/bin
-    - .local/share
-    - .local/share/tools
 - name: Copy tools
   ansible.builtin.copy:
     src: tools/
     dest: "/home/{{ ansible_user }}/.local/share/tools/"
     mode: "0755"
-- name: Symlink tools
+# Symlink onto /usr/local/bin (on the default PATH) rather than ~/.local/bin,
+# which isn't on PATH for the non-interactive shell the dashboard uses to
+# invoke sprite-task.
+- name: Symlink tools onto PATH
   ansible.builtin.file:
     src: "/home/{{ ansible_user }}/.local/share/tools/{{ item }}"
-    dest: "/home/{{ ansible_user }}/.local/bin/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
     state: link
   loop:
     - sprite-task
