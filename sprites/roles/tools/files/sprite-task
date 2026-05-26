@@ -1,0 +1,114 @@
+#!/usr/bin/env bun
+// sprite-task — a small CLI wrapper around the Sprite Tasks API.
+//
+// Talks to the Sprite control API over its unix socket using Bun's native
+// fetch({ unix }). See https://docs.sprites.dev/keeping-sprites-running.md
+//
+//   sprite-task add <name> [expire]   PUT    /v1/tasks/:name   (upsert; expire defaults to "1h")
+//   sprite-task get <name>            GET    /v1/tasks/:name
+//   sprite-task list                  GET    /v1/tasks
+//   sprite-task delete <name>         DELETE /v1/tasks/:name
+
+const SOCKET = "/.sprite/api.sock";
+const BASE = "http://sprite";
+
+const USAGE = `Usage:
+  sprite-task add <name> [expire]   create/refresh a task (expire defaults to "1h")
+  sprite-task get <name>            fetch a single task
+  sprite-task list                  list all active tasks
+  sprite-task delete <name>         remove a task
+
+expire: an integer number of seconds, or a duration string like "30m" or "1h"
+        (the server caps a task's lifetime at 1 hour).`;
+
+function die(msg: string): never {
+  console.error(msg);
+  process.exit(1);
+}
+
+// Coerce an expire argument: all-digits -> integer seconds, otherwise a
+// duration string passed through verbatim ("30m", "1h").
+function parseExpire(value: string): number | string {
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
+
+async function api(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<Response> {
+  try {
+    return await fetch(`${BASE}${path}`, {
+      method,
+      // Bun routes the request over this unix socket instead of TCP.
+      unix: SOCKET,
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    return die(
+      `error: could not reach the Sprite API at ${SOCKET}\n${(err as Error).message}`,
+    );
+  }
+}
+
+// Print the response body as raw JSON (or whatever text the server sent) and
+// exit non-zero on any non-2xx status.
+async function emit(res: Response): Promise<void> {
+  const text = (await res.text()).trim();
+  if (!res.ok) {
+    die(`error: ${res.status} ${res.statusText}${text ? `\n${text}` : ""}`);
+  }
+  if (text) console.log(text);
+}
+
+async function main(): Promise<void> {
+  const [cmd, ...rest] = process.argv.slice(2);
+
+  switch (cmd) {
+    case "add": {
+      const [name, expire] = rest;
+      if (!name) die(`error: 'add' requires a task name\n\n${USAGE}`);
+      const res = await api("PUT", `/v1/tasks/${encodeURIComponent(name)}`, {
+        expire: expire !== undefined ? parseExpire(expire) : "1h",
+      });
+      await emit(res);
+      // PUT may return 200 with no body; make success visible regardless.
+      if (res.ok) console.error(`ok: task '${name}' set`);
+      break;
+    }
+
+    case "get": {
+      const [name] = rest;
+      if (!name) die(`error: 'get' requires a task name\n\n${USAGE}`);
+      await emit(await api("GET", `/v1/tasks/${encodeURIComponent(name)}`));
+      break;
+    }
+
+    case "list": {
+      await emit(await api("GET", "/v1/tasks"));
+      break;
+    }
+
+    case "delete": {
+      const [name] = rest;
+      if (!name) die(`error: 'delete' requires a task name\n\n${USAGE}`);
+      const res = await api("DELETE", `/v1/tasks/${encodeURIComponent(name)}`);
+      await emit(res); // 204 -> no body; emit() stays quiet but enforces 2xx
+      if (res.ok) console.error(`ok: task '${name}' deleted`);
+      break;
+    }
+
+    case undefined:
+    case "-h":
+    case "--help":
+    case "help":
+      console.log(USAGE);
+      break;
+
+    default:
+      die(`error: unknown command '${cmd}'\n\n${USAGE}`);
+  }
+}
+
+main();

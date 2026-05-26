@@ -1,0 +1,24 @@
+---
+- name: Ensure ~/.local dirs
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - .local
+    - .local/bin
+    - .local/share
+    - .local/share/tools
+- name: Copy tools
+  ansible.builtin.copy:
+    src: tools/
+    dest: "/home/{{ ansible_user }}/.local/share/tools/"
+    mode: "0755"
+- name: Symlink tools
+  ansible.builtin.file:
+    src: "/home/{{ ansible_user }}/.local/share/tools/{{ item }}"
+    dest: "~/.local/bin/{{ item }}"
+    state: link
+  loop:
+    - sprite-task
+    - start-rc
